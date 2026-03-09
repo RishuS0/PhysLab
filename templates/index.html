@@ -2,52 +2,123 @@
 <html>
 
 <head>
-<title>Ball Tracker</title>
+
+<title>PhysLab Tracker</title>
 
 <style>
+
 body{
-background:#111;
+background:#0b0b0b;
 color:white;
 font-family:Arial;
 text-align:center;
+margin:0;
 }
+
+header{
+background:#111;
+padding:20px;
+font-size:28px;
+font-weight:bold;
+letter-spacing:1px;
+}
+
+.container{
+width:700px;
+margin:auto;
+margin-top:40px;
+background:#151515;
+padding:30px;
+border-radius:10px;
+box-shadow:0px 0px 20px rgba(0,0,0,0.6);
+}
+
 button{
-padding:10px 20px;
-margin:8px;
+padding:12px 22px;
+margin:10px;
+border:none;
+border-radius:6px;
+background:#2196f3;
+color:white;
+font-size:16px;
+cursor:pointer;
 }
+
+button:hover{
+background:#1976d2;
+}
+
+.section{
+margin-top:35px;
+}
+
+.slider{
+width:350px;
+}
+
+#video{
+margin-top:20px;
+border-radius:10px;
+}
+
 </style>
+
 </head>
 
 <body>
+
+<header>
+PhysLab – Optical Tracker
+</header>
+
+<div class="container">
 
 <h2>Ball Trajectory Tracker</h2>
 
 <button onclick="startCamera()">Start Camera</button>
 
-<br><br>
+<br>
 
-<img id="video" width="800">
+<img id="video" width="600">
+
+<div class="section">
 
 <h3>HSV Calibration</h3>
 
-Lower H <input type="range" min="0" max="179" id="lh"><br>
-Lower S <input type="range" min="0" max="255" id="ls"><br>
-Lower V <input type="range" min="0" max="255" id="lv"><br>
+Lower H <input class="slider" type="range" min="0" max="179" id="lh"><br>
+Lower S <input class="slider" type="range" min="0" max="255" id="ls"><br>
+Lower V <input class="slider" type="range" min="0" max="255" id="lv"><br>
 
-Upper H <input type="range" min="0" max="179" id="uh" value="20"><br>
-Upper S <input type="range" min="0" max="255" id="us" value="255"><br>
-Upper V <input type="range" min="0" max="255" id="uv" value="255"><br>
+Upper H <input class="slider" type="range" min="0" max="179" id="uh" value="20"><br>
+Upper S <input class="slider" type="range" min="0" max="255" id="us" value="255"><br>
+Upper V <input class="slider" type="range" min="0" max="255" id="uv" value="255"><br>
 
 <button onclick="updateHSV()">Update Color</button>
+
+</div>
+
+<div class="section">
 
 <h3>Tracking</h3>
 
 <button onclick="startTracking()">Play</button>
 <button onclick="stopTracking()">Stop</button>
 
-<br><br>
+</div>
 
-<img id="plot">
+<img id="plot" width="600">
+
+<div class="section">
+
+<h3>Rocket Simulator</h3>
+
+<a href="/simulator">
+<button>Open Rocket Trajectory Simulator</button>
+</a>
+
+</div>
+
+</div>
 
 <script>
 
@@ -61,41 +132,50 @@ document.getElementById("video").src="/video"
 function updateHSV(){
 
 fetch("/update_hsv",{
+
 method:"POST",
-headers:{'Content-Type':'application/x-www-form-urlencoded'},
+
+headers:{
+'Content-Type':'application/x-www-form-urlencoded'
+},
+
 body:
+
 "lh="+lh.value+
 "&ls="+ls.value+
 "&lv="+lv.value+
 "&uh="+uh.value+
 "&us="+us.value+
 "&uv="+uv.value
+
 })
 
 }
 
 function startTracking(){
+
 fetch("/start_tracking")
+
 }
 
 function stopTracking(){
 
 fetch("/stop_tracking")
+
 .then(res=>res.json())
+
 .then(data=>{
 
 if(data.plot){
+
 document.getElementById("plot").src=
 "data:image/png;base64,"+data.plot
+
 }
 
 })
 
 }
-
-<a href="/simulator">
-<button>Rocket Simulator</button>
-</a>
 
 </script>
 
