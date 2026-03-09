@@ -20,7 +20,6 @@ background:#111;
 padding:20px;
 font-size:28px;
 font-weight:bold;
-letter-spacing:1px;
 }
 
 .container{
@@ -61,8 +60,13 @@ margin-top:20px;
 border-radius:8px;
 }
 
-input[type="file"]{
+.colorPreview{
+width:60px;
+height:60px;
+border-radius:50%;
+margin:auto;
 margin-top:10px;
+border:3px solid white;
 }
 
 </style>
@@ -79,11 +83,6 @@ PhysLab – Optical Ball Trajectory Tracker
 
 <h2>Upload Ball Motion Video</h2>
 
-<p>
-Upload a short video of a ball bouncing.  
-The system will detect the ball and reconstruct its trajectory.
-</p>
-
 <input type="file" id="videoFile" accept="video/*">
 
 <br>
@@ -98,25 +97,27 @@ The system will detect the ball and reconstruct its trajectory.
 
 <h3>HSV Calibration</h3>
 
-<p>Adjust these if the ball color detection is incorrect.</p>
+<p>Adjust the sliders and watch the preview color.</p>
 
-Lower H <br>
-<input class="slider" type="range" min="0" max="179" id="lh"><br>
+Lower H<br>
+<input class="slider" type="range" min="0" max="179" id="lh" oninput="updatePreview()"><br>
 
-Lower S <br>
-<input class="slider" type="range" min="0" max="255" id="ls"><br>
+Lower S<br>
+<input class="slider" type="range" min="0" max="255" id="ls" oninput="updatePreview()"><br>
 
-Lower V <br>
-<input class="slider" type="range" min="0" max="255" id="lv"><br>
+Lower V<br>
+<input class="slider" type="range" min="0" max="255" id="lv" oninput="updatePreview()"><br>
 
-Upper H <br>
+Upper H<br>
 <input class="slider" type="range" min="0" max="179" id="uh" value="20"><br>
 
-Upper S <br>
+Upper S<br>
 <input class="slider" type="range" min="0" max="255" id="us" value="255"><br>
 
-Upper V <br>
+Upper V<br>
 <input class="slider" type="range" min="0" max="255" id="uv" value="255"><br>
+
+<div class="colorPreview" id="colorCircle"></div>
 
 <button onclick="updateHSV()">Update Color Range</button>
 
@@ -126,10 +127,6 @@ Upper V <br>
 
 <h3>Rocket Physics Simulator</h3>
 
-<p>
-Explore how rocket parameters affect trajectory.
-</p>
-
 <a href="/simulator">
 <button>Open Rocket Trajectory Simulator</button>
 </a>
@@ -137,7 +134,6 @@ Explore how rocket parameters affect trajectory.
 </div>
 
 </div>
-
 
 <script>
 
@@ -203,8 +199,50 @@ body:
 
 }
 
+
+function hsvToRgb(h, s, v){
+
+s/=255
+v/=255
+
+let c = v*s
+let x = c*(1-Math.abs((h/30)%2-1))
+let m = v-c
+
+let r=0,g=0,b=0
+
+if(h<30){r=c;g=x;b=0}
+else if(h<60){r=x;g=c;b=0}
+else if(h<90){r=0;g=c;b=x}
+else if(h<120){r=0;g=x;b=c}
+else if(h<150){r=x;g=0;b=c}
+else{r=c;g=0;b=x}
+
+r=Math.round((r+m)*255)
+g=Math.round((g+m)*255)
+b=Math.round((b+m)*255)
+
+return [r,g,b]
+
+}
+
+
+function updatePreview(){
+
+let h=parseInt(document.getElementById("lh").value)
+let s=parseInt(document.getElementById("ls").value)
+let v=parseInt(document.getElementById("lv").value)
+
+let rgb=hsvToRgb(h,s,v)
+
+document.getElementById("colorCircle").style.backgroundColor =
+`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`
+
+}
+
+updatePreview()
+
 </script>
 
 </body>
-
 </html>
