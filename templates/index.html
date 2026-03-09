@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Ball Tracker</title>
+
+<style>
+body{
+background:#111;
+color:white;
+font-family:Arial;
+text-align:center;
+}
+button{
+padding:10px 20px;
+margin:8px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Ball Trajectory Tracker</h2>
+
+<button onclick="startCamera()">Start Camera</button>
+
+<br><br>
+
+<img id="video" width="800">
+
+<h3>HSV Calibration</h3>
+
+Lower H <input type="range" min="0" max="179" id="lh"><br>
+Lower S <input type="range" min="0" max="255" id="ls"><br>
+Lower V <input type="range" min="0" max="255" id="lv"><br>
+
+Upper H <input type="range" min="0" max="179" id="uh" value="20"><br>
+Upper S <input type="range" min="0" max="255" id="us" value="255"><br>
+Upper V <input type="range" min="0" max="255" id="uv" value="255"><br>
+
+<button onclick="updateHSV()">Update Color</button>
+
+<h3>Tracking</h3>
+
+<button onclick="startTracking()">Play</button>
+<button onclick="stopTracking()">Stop</button>
+
+<br><br>
+
+<img id="plot">
+
+<script>
+
+function startCamera(){
+
+fetch("/start_camera")
+document.getElementById("video").src="/video"
+
+}
+
+function updateHSV(){
+
+fetch("/update_hsv",{
+method:"POST",
+headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:
+"lh="+lh.value+
+"&ls="+ls.value+
+"&lv="+lv.value+
+"&uh="+uh.value+
+"&us="+us.value+
+"&uv="+uv.value
+})
+
+}
+
+function startTracking(){
+fetch("/start_tracking")
+}
+
+function stopTracking(){
+
+fetch("/stop_tracking")
+.then(res=>res.json())
+.then(data=>{
+
+if(data.plot){
+document.getElementById("plot").src=
+"data:image/png;base64,"+data.plot
+}
+
+})
+
+}
+
+<a href="/simulator">
+<button>Rocket Simulator</button>
+</a>
+
+</script>
+
+</body>
+</html>
