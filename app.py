@@ -121,37 +121,47 @@ def segment_bounces(Z):
 
 def plot_trajectory():
 
-    traj=np.array(trajectory)
+    traj = np.array(trajectory)
 
-    X=traj[:,0]
-    Y=traj[:,2]
-    Z=traj[:,1]
+    X = traj[:,0]
+    Y = traj[:,2]
+    Z = traj[:,1]
 
+    # normalize axes
     Z -= Z.min()
     X -= np.mean(X)
     Y -= Y.min()
 
-    t=np.arange(len(Z))/FPS
+    t = np.arange(len(Z)) / FPS
 
+    fig = plt.figure(figsize=(8,6))
+    ax = fig.add_subplot(111, projection="3d")
+
+    # scatter raw points
+    ax.scatter(X, Y, Z, s=10, color="blue")
+
+    # smoother interpolation
     segments = segment_bounces(Z)
-
-    fig=plt.figure(figsize=(8,6))
-    ax=fig.add_subplot(111,projection="3d")
-
-    ax.scatter(X,Y,Z,s=12)
 
     for s,e in segments:
 
         if e-s < 6:
             continue
 
-        t_seg=t[s:e]
+        t_seg = t[s:e]
 
-        coeff=np.polyfit(t_seg,Z[s:e],2)
+        # cubic parametric fit
+        px = np.polyfit(t_seg, X[s:e], 3)
+        py = np.polyfit(t_seg, Y[s:e], 3)
+        pz = np.polyfit(t_seg, Z[s:e], 3)
 
-        Z_fit=np.polyval(coeff,t_seg)
+        t_dense = np.linspace(t_seg[0], t_seg[-1], 200)
 
-        ax.plot(X[s:e],Y[s:e],Z_fit,color="red",linewidth=2)
+        X_fit = np.polyval(px, t_dense)
+        Y_fit = np.polyval(py, t_dense)
+        Z_fit = np.polyval(pz, t_dense)
+
+        ax.plot(X_fit, Y_fit, Z_fit, color="red", linewidth=3)
 
     ax.set_xlabel("Sideways")
     ax.set_ylabel("Depth")
@@ -159,14 +169,13 @@ def plot_trajectory():
 
     ax.set_title("Tracked Multi-Bounce Trajectory")
 
-    buf=BytesIO()
-    plt.savefig(buf,format="png")
+    buf = BytesIO()
+    plt.savefig(buf, format="png")
     buf.seek(0)
 
-    img=base64.b64encode(buf.read()).decode("utf-8")
+    img = base64.b64encode(buf.read()).decode("utf-8")
 
     return img
-
 
 # -------------------------
 # Process uploaded video
