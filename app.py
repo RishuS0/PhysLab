@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify, request
+from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
 import matplotlib
@@ -6,33 +6,21 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
-import threading
-import os
 
 app = Flask(__name__)
 
-PHONE_IP = "192.168.1.4"
-VIDEO_URL = f"http://{PHONE_IP}:8080/video"
-
-frame = None
-cap = None
-lock = threading.Lock()
-
-tracking = False
 trajectory = []
 
 DEPTH_SCALE = 900
 FPS = 30
 
+# HSV calibration
 lh,ls,lv = 0,100,100
 uh,us,uv = 20,255,255
 
+# smoothing
 radius_smooth = None
 depth_smooth = None
-
-last_position = None
-MAX_JUMP = 120
-
 
 # -------------------------
 # Kalman Filter
@@ -40,7 +28,9 @@ MAX_JUMP = 120
 
 kalman = cv2.KalmanFilter(4,2)
 
-kalman.measurementMatrix = np.array([[1,0,0,0],[0,1,0,0]],np.float32)
+kalman.measurementMatrix = np.array([
+[1,0,0,0],
+[0,1,0,0]],np.float32)
 
 kalman.transitionMatrix = np.array([
 [1,0,1,0],
@@ -52,33 +42,10 @@ kalman.processNoiseCov = np.eye(4,dtype=np.float32)*0.02
 
 
 # -------------------------
-# Camera Thread
-# -------------------------
-
-def camera_loop():
-
-    global frame,cap
-
-    cap = cv2.VideoCapture(VIDEO_URL)
-
-    while True:
-
-        ret,img = cap.read()
-
-        if not ret:
-            continue
-
-        with lock:
-            frame = img.copy()
-
-
-# -------------------------
 # Ball detection
 # -------------------------
 
 def detect_ball(img):
-
-    global last_position
 
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
@@ -127,46 +94,25 @@ def detect_ball(img):
 
 
 # -------------------------
-# Video Stream
+# Bounce segmentation
 # -------------------------
 
-def video_stream():
+def segment_bounces(Z):
 
-    global frame,tracking,trajectory
+    segments=[]
+    start=0
 
-    while True:
+    vel=np.gradient(Z)
 
-        with lock:
+    for i in range(1,len(vel)-1):
 
-            if frame is None:
-                continue
+        if vel[i-1] < 0 and vel[i+1] > 0:
+            segments.append((start,i))
+            start=i
 
-            img = frame.copy()
+    segments.append((start,len(Z)))
 
-        ball = detect_ball(img)
-
-        if ball:
-
-            x,y,r = ball
-
-            measurement = np.array([[np.float32(x)],[np.float32(y)]])
-
-            kalman.correct(measurement)
-            prediction = kalman.predict()
-
-            px=int(prediction[0])
-            py=int(prediction[1])
-
-            cv2.circle(img,(px,py),5,(0,255,0),-1)
-
-            if tracking:
-
-                trajectory.append([px,-py,r])
-
-        ret,buffer=cv2.imencode(".jpg",img)
-
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n'+buffer.tobytes()+b'\r\n')
+    return segments
 
 
 # -------------------------
@@ -178,21 +124,43 @@ def plot_trajectory():
     traj=np.array(trajectory)
 
     X=traj[:,0]
+    Y=traj[:,2]
     Z=traj[:,1]
 
-    fig=plt.figure()
+    Z -= Z.min()
+    X -= np.mean(X)
+    Y -= Y.min()
 
-    ax=fig.add_subplot(111)
+    t=np.arange(len(Z))/FPS
 
-    ax.plot(X,Z)
+    segments = segment_bounces(Z)
 
-    ax.set_xlabel("Horizontal")
-    ax.set_ylabel("Vertical")
+    fig=plt.figure(figsize=(8,6))
+    ax=fig.add_subplot(111,projection="3d")
+
+    ax.scatter(X,Y,Z,s=12)
+
+    for s,e in segments:
+
+        if e-s < 6:
+            continue
+
+        t_seg=t[s:e]
+
+        coeff=np.polyfit(t_seg,Z[s:e],2)
+
+        Z_fit=np.polyval(coeff,t_seg)
+
+        ax.plot(X[s:e],Y[s:e],Z_fit,color="red",linewidth=2)
+
+    ax.set_xlabel("Sideways")
+    ax.set_ylabel("Depth")
+    ax.set_zlabel("Height")
+
+    ax.set_title("Tracked Multi-Bounce Trajectory")
 
     buf=BytesIO()
-
     plt.savefig(buf,format="png")
-
     buf.seek(0)
 
     img=base64.b64encode(buf.read()).decode("utf-8")
@@ -201,7 +169,59 @@ def plot_trajectory():
 
 
 # -------------------------
-# Rocket Simulation
+# Process uploaded video
+# -------------------------
+
+@app.route("/process_video",methods=["POST"])
+def process_video():
+
+    global trajectory
+
+    trajectory=[]
+
+    file=request.files["video"]
+
+    temp_path="temp_video.mp4"
+
+    file.save(temp_path)
+
+    cap=cv2.VideoCapture(temp_path)
+
+    while True:
+
+        ret,frame=cap.read()
+
+        if not ret:
+            break
+
+        ball=detect_ball(frame)
+
+        if ball:
+
+            x,y,r = ball
+
+            measurement = np.array([[np.float32(x)],
+                                    [np.float32(y)]])
+
+            kalman.correct(measurement)
+            prediction = kalman.predict()
+
+            px=int(prediction[0])
+            py=int(prediction[1])
+
+            depth = DEPTH_SCALE / r
+
+            trajectory.append([px,-py,depth])
+
+    cap.release()
+
+    img=plot_trajectory()
+
+    return jsonify({"plot":img})
+
+
+# -------------------------
+# Rocket simulation
 # -------------------------
 
 @app.route("/simulate",methods=["POST"])
@@ -287,45 +307,10 @@ def simulator():
     return render_template("simulator.html")
 
 
-@app.route("/video")
-def video():
-    return Response(video_stream(),
-    mimetype="multipart/x-mixed-replace; boundary=frame")
-
-
-@app.route("/start_camera")
-def start_camera():
-
-    threading.Thread(target=camera_loop,daemon=True).start()
-
-    return "ok"
-
-
-@app.route("/start_tracking")
-def start_tracking():
-
-    global tracking,trajectory
-
-    trajectory=[]
-    tracking=True
-
-    return "ok"
-
-
-@app.route("/stop_tracking")
-def stop_tracking():
-
-    global tracking
-
-    tracking=False
-
-    img=plot_trajectory()
-
-    return jsonify({"plot":img})
-
+# -------------------------
+# Run server
+# -------------------------
 
 if __name__=="__main__":
 
-    port=int(os.environ.get("PORT",10000))
-
-    app.run(host="0.0.0.0",port=port)
+    app.run(host="0.0.0.0",port=10000)

@@ -29,3 +29,26 @@ document.getElementById("plot").src=
 })
 
 }
+
+function uploadVideo(){
+
+let file=document.getElementById("videoFile").files[0]
+
+let form=new FormData()
+
+form.append("video",file)
+
+fetch("/process_video",{
+method:"POST",
+body:form
+})
+
+.then(res=>res.json())
+.then(data=>{
+
+document.getElementById("plot").src=
+"data:image/png;base64,"+data.plot
+
+})
+
+}

@@ -3,7 +3,7 @@
 
 <head>
 
-<title>PhysLab Tracker</title>
+<title>PhysLab - Ball Trajectory Tracker</title>
 
 <style>
 
@@ -24,7 +24,7 @@ letter-spacing:1px;
 }
 
 .container{
-width:700px;
+width:750px;
 margin:auto;
 margin-top:40px;
 background:#151515;
@@ -56,9 +56,13 @@ margin-top:35px;
 width:350px;
 }
 
-#video{
+#plot{
 margin-top:20px;
-border-radius:10px;
+border-radius:8px;
+}
+
+input[type="file"]{
+margin-top:10px;
 }
 
 </style>
@@ -68,49 +72,63 @@ border-radius:10px;
 <body>
 
 <header>
-PhysLab – Optical Tracker
+PhysLab – Optical Ball Trajectory Tracker
 </header>
 
 <div class="container">
 
-<h2>Ball Trajectory Tracker</h2>
+<h2>Upload Ball Motion Video</h2>
 
-<button onclick="startCamera()">Start Camera</button>
+<p>
+Upload a short video of a ball bouncing.  
+The system will detect the ball and reconstruct its trajectory.
+</p>
+
+<input type="file" id="videoFile" accept="video/*">
 
 <br>
 
-<img id="video" width="600">
+<button onclick="uploadVideo()">Analyze Trajectory</button>
+
+<br><br>
+
+<img id="plot" width="650">
 
 <div class="section">
 
 <h3>HSV Calibration</h3>
 
-Lower H <input class="slider" type="range" min="0" max="179" id="lh"><br>
-Lower S <input class="slider" type="range" min="0" max="255" id="ls"><br>
-Lower V <input class="slider" type="range" min="0" max="255" id="lv"><br>
+<p>Adjust these if the ball color detection is incorrect.</p>
 
-Upper H <input class="slider" type="range" min="0" max="179" id="uh" value="20"><br>
-Upper S <input class="slider" type="range" min="0" max="255" id="us" value="255"><br>
-Upper V <input class="slider" type="range" min="0" max="255" id="uv" value="255"><br>
+Lower H <br>
+<input class="slider" type="range" min="0" max="179" id="lh"><br>
 
-<button onclick="updateHSV()">Update Color</button>
+Lower S <br>
+<input class="slider" type="range" min="0" max="255" id="ls"><br>
+
+Lower V <br>
+<input class="slider" type="range" min="0" max="255" id="lv"><br>
+
+Upper H <br>
+<input class="slider" type="range" min="0" max="179" id="uh" value="20"><br>
+
+Upper S <br>
+<input class="slider" type="range" min="0" max="255" id="us" value="255"><br>
+
+Upper V <br>
+<input class="slider" type="range" min="0" max="255" id="uv" value="255"><br>
+
+<button onclick="updateHSV()">Update Color Range</button>
 
 </div>
 
 <div class="section">
 
-<h3>Tracking</h3>
+<h3>Rocket Physics Simulator</h3>
 
-<button onclick="startTracking()">Play</button>
-<button onclick="stopTracking()">Stop</button>
-
-</div>
-
-<img id="plot" width="600">
-
-<div class="section">
-
-<h3>Rocket Simulator</h3>
+<p>
+Explore how rocket parameters affect trajectory.
+</p>
 
 <a href="/simulator">
 <button>Open Rocket Trajectory Simulator</button>
@@ -120,12 +138,45 @@ Upper V <input class="slider" type="range" min="0" max="255" id="uv" value="255"
 
 </div>
 
+
 <script>
 
-function startCamera(){
+function uploadVideo(){
 
-fetch("/start_camera")
-document.getElementById("video").src="/video"
+let file=document.getElementById("videoFile").files[0]
+
+if(!file){
+
+alert("Please upload a video first")
+
+return
+
+}
+
+let form=new FormData()
+
+form.append("video",file)
+
+fetch("/process_video",{
+
+method:"POST",
+
+body:form
+
+})
+
+.then(res=>res.json())
+
+.then(data=>{
+
+if(data.plot){
+
+document.getElementById("plot").src=
+"data:image/png;base64,"+data.plot
+
+}
+
+})
 
 }
 
@@ -152,32 +203,8 @@ body:
 
 }
 
-function startTracking(){
-
-fetch("/start_tracking")
-
-}
-
-function stopTracking(){
-
-fetch("/stop_tracking")
-
-.then(res=>res.json())
-
-.then(data=>{
-
-if(data.plot){
-
-document.getElementById("plot").src=
-"data:image/png;base64,"+data.plot
-
-}
-
-})
-
-}
-
 </script>
 
 </body>
+
 </html>
